@@ -1,5 +1,5 @@
 [package]
-name = "uniform-values"
+name = "cube"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,6 +7,5 @@ edition = "2021"
 
 [dependencies]
 bytemuck = "1.15.0"
-encase = "0.7.0"
 wgpu = "0.19.4"
 winit = "0.29.15"

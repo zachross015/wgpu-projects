@@ -447,6 +447,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "248e3bacc7dc6baa3b21e405ee045c3047101a49145e7e9eca583ab4c2ca5345"
 
 [[package]]
+name = "cube"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
 name = "cursor-icon"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -722,6 +731,18 @@ dependencies = [
  "thiserror",
  "widestring",
  "winapi",
+]
+
+[[package]]
+name = "hello"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "log 0.4.21",
+ "logger",
+ "pollster",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]

@@ -1,6 +1,21 @@
 [workspace]
 members = [ 
+	"00-hello",
 	"01-hello-triangle",
-	"02-uniform-values"
+	"02-uniform-values",
+	"03-cube"
 ]
 resolver = "1"
+
+[workspace.dependencies]
+bytemuck = "1.15.0"
+encase = { version = "0.7.0", features = ["glam"] }
+env_logger = "0.11.3"
+glam = "0.25.0"
+help = "0.0.0"
+# glam = { version = "0.27.0", features = ["bytemuck"] }
+logger = "0.4.0"
+pollster = "0.3.0"
+wgpu = "0.19.4"
+winit = "0.29.15"
+rayon = "1.10.0"

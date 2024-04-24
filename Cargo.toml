@@ -1,0 +1,6 @@
+[workspace]
+members = [ 
+	"01-hello-triangle",
+	"02-uniform-values"
+]
+resolver = "1"

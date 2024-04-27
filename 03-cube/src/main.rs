@@ -1,24 +1,24 @@
 // Improvements: Build a texture atlas dynamically via creating texel lookup
 //
-use std::{default, sync::Arc};
+use std::sync::Arc;
 
-use encase::{ArrayLength, ShaderType};
-use framework::wgpu_context::WgpuContext;
-use wgpu::{core::device::queue, util::{BufferInitDescriptor, DeviceExt}, vertex_attr_array, Color, FragmentState, RenderPassDescriptor, VertexAttribute};
+use encase::ShaderType;
+use framework::{WgpuContext, BufferBuilder, RenderPassBuilder};
+use wgpu::{include_wgsl, vertex_attr_array, Buffer};
 use winit::{event::WindowEvent, event_loop::EventLoop, window::Window};
 use bytemuck::{Pod, Zeroable};
 
 #[repr(C)]
 #[derive(ShaderType, Copy, Clone, Pod, Zeroable)]
 struct Vertex {
-    position: [f32; 3],
+    position: [f32; 4],
     color: [f32; 4],
 }
 
 impl Vertex {
-    fn new(p: (f32, f32, f32) , c: (f32, f32, f32, f32)) -> Self {
+    fn new((x, y, z): (f32, f32, f32) , c: (f32, f32, f32, f32)) -> Self {
         Vertex {
-            position: p.into(),
+            position: [x, y, z, 0.0],
             color: c.into()
         }
     }
@@ -109,42 +109,88 @@ fn cube() -> (Vec<Vertex>, Vec<u16>) {
 }
 
 struct Shader {
+    bind_group: wgpu::BindGroup,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
+    uniform_buffer: wgpu::Buffer,
     pipeline: wgpu::RenderPipeline,
 }
 
 impl Shader {
+
     fn new(wgpu_context: &WgpuContext) -> Self {
         // Pre-Initialize shortcuts
 
         let device = &wgpu_context.device;
-        let format = wgpu_context.surface.get_capabilities(&wgpu_context.adapter).formats[0];
+        let format = wgpu_context.swapchain_format();
 
         // construct the module
 
-        let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: None, source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!("shader.wgsl"))) });
+        let module = device.create_shader_module(include_wgsl!("shader.wgsl"));
 
         // Construct the pipeline by building the various layout requirements
 
         let buffer_layout = wgpu::VertexBufferLayout { 
-            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress, 
+            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress, 
             step_mode: wgpu::VertexStepMode::Vertex, 
-            attributes: &vertex_attr_array![ 0 => Float32x3, 1 => Float32x4 ],
+            attributes: &vertex_attr_array![ 0 => Float32x4, 1 => Float32x4 ],
         };
 
-        let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[],
-            push_constant_ranges: &[],
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                    count: None,
+                    ty: wgpu::BindingType::Buffer { 
+                        has_dynamic_offset: false, 
+                        ty: wgpu::BufferBindingType::Uniform,
+                        min_binding_size: wgpu::BufferSize::new(4),
+                    }
+                }
+            ]
         });
+
+        let time: f32 = 0.0;
+
+        let buffer = BufferBuilder::bytes_of(&time)
+            .usage(wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST)
+            .build(device);
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: buffer.as_entire_binding(),
+                }
+            ]
+        });
+
+        let layout = framework::PipelineLayoutBuilder::new()
+            .add_bind_group_layout(&layout)
+            .build(device);
+
+
+        // Build the initial buffers
+        let (vertex_data, index_data) = cube();
+
+        let vertex_buffer = BufferBuilder::slice_of(&vertex_data)
+            .usage(wgpu::BufferUsages::VERTEX)
+            .build(device);
+
+        let index_buffer = BufferBuilder::slice_of(&index_data)
+            .usage(wgpu::BufferUsages::INDEX)
+            .build(device);
+
 
         let vertex_state = wgpu::VertexState {
             module: &module,
             entry_point: "vs_main",
             buffers: &[buffer_layout],
         };
-
 
         let fragment_state = wgpu::FragmentState {
             module: &module,
@@ -164,22 +210,7 @@ impl Shader {
                 multiview: None 
             });
 
-        // Build the initial buffers
-        let (vertex_data, index_data) = cube();
-
-        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::cast_slice(&vertex_data),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::cast_slice(&index_data),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-
-        Shader { vertex_buffer, index_buffer, pipeline }
+        Shader { bind_group: bind_group, uniform_buffer: buffer, vertex_buffer, index_buffer, pipeline }
     }
 }
 
@@ -191,9 +222,9 @@ pub async fn run(event_loop: EventLoop<()>, window: Arc<Window>) {
     let mut context = Some(WgpuContext::from_window(window).await);
     let mut shader = Some(Shader::new(context.as_ref().unwrap()));
 
+    let start = std::time::Instant::now();
 
     event_loop.run(move |event, target| {
-
         match event {
             Event::LoopExiting => {
                 context = None;
@@ -204,25 +235,33 @@ pub async fn run(event_loop: EventLoop<()>, window: Arc<Window>) {
                     WindowEvent::CloseRequested => {
                         target.exit();
                     }
+                    WindowEvent::Resized(new_size) => {
+                        let context = context.as_mut().unwrap();
+                        context.resize(new_size);
+                    }
                     WindowEvent::RedrawRequested => {
 
                         let context = context.as_mut().unwrap();
-                        let texture = context.surface.get_current_texture().unwrap();
                         let shader = shader.as_ref().unwrap();
-                        let view = texture.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-                        let mut encoder = context.device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+                        let time: f32 = std::time::Instant::now().duration_since(start).as_secs_f32();
+                        context.queue.write_buffer(&shader.uniform_buffer, 0, bytemuck::bytes_of(&time));
 
-                        {
-                            let rpass_builder = framework::RenderPassBuilder::new(&view).clear(wgpu::Color::BLUE);
-                            let mut rpass = encoder.begin_render_pass(&rpass_builder.build());
+                        context.perform_render_pass(|fv, mut ce| {
+                            let mut rpass = RenderPassBuilder::new()
+                                .clear(&fv, wgpu::Color::BLUE)
+                                .build(&mut ce);
+
+                            rpass.push_debug_group("Setting pipeline");
                             rpass.set_pipeline(&shader.pipeline);
+                            rpass.set_bind_group(0, &shader.bind_group, &[]);
                             rpass.set_vertex_buffer(0, shader.vertex_buffer.slice(..));
                             rpass.set_index_buffer(shader.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                            rpass.pop_debug_group();
+                            rpass.push_debug_group("Preparing to draw");
                             rpass.draw_indexed(0..24, 0, 0..1);
-                        }
-                        context.queue.submit(Some(encoder.finish()));
-                        texture.present();
+                            rpass.pop_debug_group();
+                        });
 
                         // For shader updates
                         context.window.request_redraw();

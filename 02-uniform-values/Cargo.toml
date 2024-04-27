@@ -16,3 +16,4 @@ logger.workspace = true
 pollster.workspace = true
 wgpu.workspace = true
 winit.workspace = true
+framework = { path = "../framework" }

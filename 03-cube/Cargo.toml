@@ -7,5 +7,12 @@ edition = "2021"
 
 [dependencies]
 bytemuck.workspace = true
+encase.workspace = true
+env_logger.workspace = true
+framework = { version = "0.1.0", path = "../framework" }
+glam.workspace = true
+num-traits = "0.2.18"
+pollster.workspace = true
+rayon.workspace = true
 wgpu.workspace = true
 winit.workspace = true

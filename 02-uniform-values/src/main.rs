@@ -6,12 +6,11 @@
 //
 // Any bufferable object must derive from a trait which can specify its byte requirements 
 
-mod basic_wgpu_context;
 mod app_state;
 
 use std::sync::Arc;
 
-use basic_wgpu_context::BasicWgpuContext;
+use framework::wgpu_context::WgpuContext;
 use app_state::AppState;
 use wgpu::{BindGroupEntry, BindGroupLayout, Buffer, CommandEncoderDescriptor, Device, FragmentState, PipelineLayout, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, ShaderModule, TextureFormat, TextureViewDescriptor, VertexState};
 use winit::{dpi::LogicalSize, event::{Event, KeyEvent, WindowEvent}, event_loop::EventLoop, keyboard::{Key, NamedKey}, window::{Window, WindowBuilder}};
@@ -79,7 +78,7 @@ impl ShaderProgram {
         (layout, bind_group)
     }
 
-    fn get_swapchain_texture_format(context: &BasicWgpuContext) -> wgpu::TextureFormat {
+    fn get_swapchain_texture_format(context: &WgpuContext) -> wgpu::TextureFormat {
         let swapchain_capabilities = context.surface.get_capabilities(&context.adapter);
         swapchain_capabilities.formats[0]
     }
@@ -121,7 +120,7 @@ impl ShaderProgram {
         
     }
 
-    fn new(context: &BasicWgpuContext) -> Self {
+    fn new(context: &WgpuContext) -> Self {
 
         let device = &context.device;
         
@@ -144,7 +143,7 @@ impl ShaderProgram {
 }
 
 async fn run(event_loop: EventLoop<()>, window: Arc<Window>) {
-    let mut context = Some(BasicWgpuContext::new(window).await);
+    let mut context = Some(WgpuContext::from_window(window).await);
     let mut state = Some(AppState::default());
     let mut shader_program = Some(ShaderProgram::new(context.as_ref().unwrap()));
     let main_window_id = context.as_ref().unwrap().window.id();

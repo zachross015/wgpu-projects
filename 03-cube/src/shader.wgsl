@@ -28,9 +28,16 @@ fn vs_main(@location(0) position: vec4<f32>, @location(1) color: vec4<f32>) -> V
 		vec4(0, 0, 0, 1),
 	);
 
+	var roll_matrix = mat4x4(
+		vec4(1, 0, 0, 0),
+		vec4(0, c, -s, 0),
+		vec4(0, s, c, 0),
+		vec4(0, 0, 0, 1),
+	);
+
 
 	var output: VertexOutput;
-	output.position = yaw_matrix * pitch_matrix * position;
+	output.position = yaw_matrix * pitch_matrix * roll_matrix * position;
 	output.color = color;
 
 	output.position.w = 4.0;

@@ -3,6 +3,9 @@ use std::sync::Arc;
 use wgpu::RequestAdapterOptions;
 use winit::window::Window;
 
+pub trait Renderable {
+    fn render_to<'obj, 'pass>(&'obj self, rpass: &'pass mut wgpu::RenderPass<'obj>); 
+}
 
 pub struct WgpuContext {
     pub window: Arc<Window>,
@@ -27,13 +30,16 @@ impl WgpuContext {
                 force_fallback_adapter: false,
             })
             .await
-            .unwrap();
+            .expect("Error in getting the underlying adapter for the WgpuContext");
         let surface_config = surface
-            .get_default_config(&adapter, size.width, size.height).unwrap();
+            .get_default_config(&adapter, size.width.max(1), size.height.max(1))
+            .expect("Error in retrieving the surface config fromt he adapter");
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor::default(), None)
             .await
-            .unwrap();
+            .expect("Error in retrieving the device and queue from the adapter");
+
+        surface.configure(&device, &surface_config);
 
         WgpuContext {
             window: window,
@@ -73,14 +79,14 @@ impl WgpuContext {
 
 
      */
-    pub fn perform_render_pass<F>(&self, render_pass: F) where F: Fn(&wgpu::TextureView, &mut wgpu::CommandEncoder) {
+    pub fn render_pass<F>(&self, pass: F) where F: Fn(&wgpu::TextureView, &mut wgpu::CommandEncoder) {
         let (frame, frame_view) = self.frame_view(&wgpu::TextureViewDescriptor::default());
         let mut encoder = self.command_encoder();
 
-        render_pass(&frame_view, &mut encoder);
+        pass(&frame_view, &mut encoder);
 
         self.queue.submit(Some(encoder.finish()));
         frame.present();
     }
-}
 
+}

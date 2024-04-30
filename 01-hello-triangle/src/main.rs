@@ -132,6 +132,7 @@ async fn run(event_loop: EventLoop<()>, window: Window)  {
                         // Enclose in block so memory is immediately freed
                         {
                             // Start the render pass
+                            /*
                             let mut rpass = 
                                 encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                                     label: None,
@@ -160,6 +161,10 @@ async fn run(event_loop: EventLoop<()>, window: Window)  {
                                     timestamp_writes: None,
                                     occlusion_query_set: None,
                                 });
+                                */;
+                            let mut rpass = framework::RenderPassBuilder::new()
+                                .clear(&view, wgpu::Color::BLUE)
+                                .build(&mut encoder);
                             
                             // Set the pipeline to the one created earlier
                             rpass.set_pipeline(&render_pipeline);

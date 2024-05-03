@@ -199,10 +199,10 @@ async fn run(event_loop: EventLoop<()>, window: Arc<Window>) {
                                 0, 
                                 &state.as_wgsl_bytes().expect("Error in translating AppState to wgsl bytes."));
 
-                        context.perform_render_pass(|tv, mut ce| {
-                            let mut rpass = framework::RenderPassBuilder::new()
+                        context.render_pass(|tv, mut ce| {
+                            let mut rpass = framework::RenderPass::new()
                                 .clear(&tv, wgpu::Color::BLUE)
-                                .build(&mut ce);
+                                .begin(&mut ce);
                             rpass.set_pipeline(&shader_program.pipeline);
                             rpass.set_bind_group(0, &shader_program.bind_group, &[]);
                             rpass.draw(0..3, 0..1);

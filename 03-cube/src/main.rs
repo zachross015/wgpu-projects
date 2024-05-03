@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use encase::ShaderType;
-use framework::{WgpuContext, BufferBuilder, RenderPass};
+use framework::{WgpuContext, BufferBuilder, RenderPassBuilder, basic_render_pass};
 use wgpu::{include_wgsl, vertex_attr_array, Buffer};
 use winit::{event::WindowEvent, event_loop::EventLoop, window::Window};
 use bytemuck::{Pod, Zeroable};
@@ -154,7 +154,7 @@ impl Shader {
 
         let time: f32 = 0.0;
 
-        let buffer = BufferBuilder::bytes_of(&time)
+        let uniform_buffer = BufferBuilder::bytes_of(&time)
             .usage(wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST)
             .build(device);
 
@@ -164,7 +164,7 @@ impl Shader {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: buffer.as_entire_binding(),
+                    resource: uniform_buffer.as_entire_binding(),
                 }
             ]
         });
@@ -210,21 +210,10 @@ impl Shader {
                 multiview: None 
             });
 
-        Shader { bind_group: bind_group, uniform_buffer: buffer, vertex_buffer, index_buffer, pipeline }
+        Shader { bind_group, uniform_buffer, vertex_buffer, index_buffer, pipeline }
     }
-}
 
-impl framework::Shader for Shader {
     fn render_to<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
-        render_pass.push_debug_group("Setting pipeline");
-        render_pass.set_pipeline(&self.pipeline);
-        render_pass.set_bind_group(0, &self.bind_group, &[]);
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        render_pass.pop_debug_group();
-        render_pass.push_debug_group("Preparing to draw");
-        render_pass.draw_indexed(0..24, 0, 0..1);
-        render_pass.pop_debug_group();
     }
 }
 
@@ -261,11 +250,16 @@ pub async fn run(event_loop: EventLoop<()>, window: Arc<Window>) {
                         let time: f32 = std::time::Instant::now().duration_since(start).as_secs_f32();
                         context.queue.write_buffer(&shader.uniform_buffer, 0, bytemuck::bytes_of(&time));
 
-                        context.render_pass(|fv, mut ce| {
-                            let mut rpass = RenderPass::new()
-                                .clear(&fv, wgpu::Color::BLACK)
-                                .begin(&mut ce);
-                            rpass.draw(shader);
+                        basic_render_pass!(context, BLUE, rpass in {
+                            rpass.push_debug_group("Setting pipeline");
+                            rpass.set_pipeline(&shader.pipeline);
+                            rpass.set_bind_group(0, &shader.bind_group, &[]);
+                            rpass.set_vertex_buffer(0, shader.vertex_buffer.slice(..));
+                            rpass.set_index_buffer(shader.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                            rpass.pop_debug_group();
+                            rpass.push_debug_group("Preparing to draw");
+                            rpass.draw_indexed(0..24, 0, 0..1);
+                            rpass.pop_debug_group();
                         });
 
                         // For shader updates

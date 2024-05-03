@@ -1,11 +1,9 @@
-use crate::shader::Shader;
-
-pub struct RenderPassInitBuilder<'tex> {
+pub struct RenderPassBuilder<'tex> {
     color_attachments: Vec<Option<wgpu::RenderPassColorAttachment<'tex>>>
 }
 
 
-impl<'tex> RenderPassInitBuilder<'tex> {
+impl<'tex> RenderPassBuilder<'tex> {
     pub fn new() -> Self {
         Self { 
             color_attachments: Vec::new()
@@ -26,31 +24,14 @@ impl<'tex> RenderPassInitBuilder<'tex> {
         self
     }
 
-    pub fn begin(self, encoder: &'tex mut wgpu::CommandEncoder) -> RenderPass {
-        RenderPass {
-            render_pass: encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+    pub fn build(self, encoder: &'tex mut wgpu::CommandEncoder) -> wgpu::RenderPass {
+            encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
                 color_attachments: &self.color_attachments,
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None
             })
-        }
     }
 }
 
-pub struct RenderPass<'tex> {
-    render_pass: wgpu::RenderPass<'tex>,
-}
-
-impl<'tex> RenderPass<'tex> {
-    pub fn new() -> RenderPassInitBuilder<'tex> {
-        RenderPassInitBuilder { 
-            color_attachments: Vec::new()
-        }
-    }
-
-    pub fn draw<S: Shader>(&mut self, shader: &'tex S) {
-        shader.render_to(&mut self.render_pass)
-    }
-}

@@ -3,9 +3,7 @@ use std::sync::Arc;
 use wgpu::RequestAdapterOptions;
 use winit::window::Window;
 
-pub trait Renderable {
-    fn render_to<'obj, 'pass>(&'obj self, rpass: &'pass mut wgpu::RenderPass<'obj>); 
-}
+use crate::RenderPassBuilder;
 
 pub struct WgpuContext {
     pub window: Arc<Window>,
@@ -74,19 +72,4 @@ impl WgpuContext {
     pub fn command_encoder(&self) -> wgpu::CommandEncoder {
         self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
     }
-
-    /** Performs a render pass using the parameterized function `render_pass` under the current context. The code simplifies some of the boilerplate code by collecting the frame, view, encoder, and queue from the context or other defaults, then passes the `frame_view: &wgpu::TextureView` and `command_encoder: &mut wgpu::CommandEncoder` to the paramterized function. 
-
-
-     */
-    pub fn render_pass<F>(&self, pass: F) where F: Fn(&wgpu::TextureView, &mut wgpu::CommandEncoder) {
-        let (frame, frame_view) = self.frame_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = self.command_encoder();
-
-        pass(&frame_view, &mut encoder);
-
-        self.queue.submit(Some(encoder.finish()));
-        frame.present();
-    }
-
 }

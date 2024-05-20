@@ -6,10 +6,11 @@ use winit::{event::WindowEvent, event_loop::EventLoop, window::Window};
 
 
 struct Shader {
+    bind_group: wgpu::BindGroup,
     vertex_buffer: wgpu::Buffer,
+    instance_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     uniform_buffer: wgpu::Buffer,
-    bind_group: wgpu::BindGroup,
     pipeline: wgpu::RenderPipeline,
 }
 
@@ -21,8 +22,8 @@ fn create_shader_pipeline(context: &WgpuContext) -> Shader {
     let formats = context.swapchain_format();
     
     // Shader
-    let positions: [f32; 8] = [
-        -1.0, -1.0,
+    let positions = [
+        -1.0f32, -1.0,
         -1.0, 1.0,
         1.0, 1.0,
         1.0, -1.0,
@@ -36,6 +37,16 @@ fn create_shader_pipeline(context: &WgpuContext) -> Shader {
 
     let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
 
+    let instance_centers_and_radii = [
+        300f32, 300.0, 100.0,
+        100.0, 100.0, 400.0,
+        0.0, 0.0, 550.0,
+    ];
+    let instance_buffer = framework::BufferBuilder::slice_of(&instance_centers_and_radii)
+        .usage(wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST)
+        .build(&device);
+
+
     let vertex_state = wgpu::VertexState {
         module: &shader,
         entry_point: "vs_main",
@@ -44,6 +55,11 @@ fn create_shader_pipeline(context: &WgpuContext) -> Shader {
                 array_stride: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
                 step_mode: wgpu::VertexStepMode::Vertex,
                 attributes: &vertex_attr_array![ 0 => Float32x2 ],
+            },
+            wgpu::VertexBufferLayout {
+                array_stride: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                step_mode: wgpu::VertexStepMode::Instance,
+                attributes: &vertex_attr_array![ 1 => Float32x2, 2 => Float32 ],
             },
         ]
     };
@@ -54,38 +70,34 @@ fn create_shader_pipeline(context: &WgpuContext) -> Shader {
         targets: &[Some(formats.into())],
     };
 
-    let center: [f32; 2] = [0.0, 0.0];
-    let uniform_buffer = framework::BufferBuilder::bytes_of(&center)
-        .usage(wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST)
-        .build(&device);
-
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: None,
         entries: &[
             wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                ty: wgpu::BindingType::Buffer { 
-                    ty: wgpu::BufferBindingType::Uniform, 
-                    has_dynamic_offset: false, 
-                    min_binding_size: wgpu::BufferSize::new(8) 
-                },
-                count: None,
+                ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None },
+                count: None
             }
         ]
     });
 
+    let layout = framework::PipelineLayoutBuilder::new()
+        .add_bind_group_layout(&bind_group_layout)
+        .build(&device);
+
+    let width = context.surface_config.width as f32;
+    let height = context.surface_config.height as f32;
+    let resolution = [width, height];
+    let uniform_buffer = framework::BufferBuilder::slice_of(&resolution)
+        .usage(wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST)
+        .build(&device);
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: None, layout: &bind_group_layout, entries: &[
         wgpu::BindGroupEntry {
             binding: 0,
             resource: uniform_buffer.as_entire_binding()
         }
     ] });
-
-
-    let layout = framework::PipelineLayoutBuilder::new()
-        .add_bind_group_layout(&bind_group_layout)
-        .build(&device);
 
 
     let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor { 
@@ -102,6 +114,7 @@ fn create_shader_pipeline(context: &WgpuContext) -> Shader {
     Shader {
         bind_group,
         uniform_buffer,
+        instance_buffer,
         vertex_buffer,
         index_buffer,
         pipeline,
@@ -130,10 +143,12 @@ pub async fn run(event_loop: EventLoop<()>, window: Arc<Window>) {
                         let context = context.as_mut().unwrap();
                         context.resize(new_size);
 
-                        let size = [new_size.width as f32 / 2.0, new_size.height as f32 / 2.0];
-                        let shader = shader.as_mut().unwrap();
-                        context.queue.write_buffer(&shader.uniform_buffer, 0, bytemuck::bytes_of(&size));
-                        
+                        let width = context.surface_config.width as f32;
+                        let height = context.surface_config.height as f32;
+                        let resolution = [width, height];
+                        let shader = shader.as_ref().unwrap();
+                        context.queue.write_buffer(&shader.uniform_buffer, 0, bytemuck::bytes_of(&resolution));
+
                     }
                     WindowEvent::RedrawRequested => {
 
@@ -145,10 +160,11 @@ pub async fn run(event_loop: EventLoop<()>, window: Arc<Window>) {
                             rpass.set_pipeline(&shader.pipeline);
                             rpass.set_bind_group(0, &shader.bind_group, &[]);
                             rpass.set_vertex_buffer(0, shader.vertex_buffer.slice(..));
+                            rpass.set_vertex_buffer(1, shader.instance_buffer.slice(..));
                             rpass.set_index_buffer(shader.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
                             rpass.pop_debug_group();
                             rpass.push_debug_group("Preparing to draw");
-                            rpass.draw_indexed(0..6, 0, 0..1);
+                            rpass.draw_indexed(0..6, 0, 0..3);
                             // rpass.draw
                             rpass.pop_debug_group();
                         });

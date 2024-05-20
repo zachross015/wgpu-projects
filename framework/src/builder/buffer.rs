@@ -27,6 +27,16 @@ impl BufferBuilder {
             usage: None
         }
     }
+
+    pub fn vertex<'a, Type: bytemuck::Pod>(contents: &'a [Type]) -> ContentsBufferBuilder<'a> {
+        BufferBuilder::slice_of(contents)
+            .usage(wgpu::BufferUsages::VERTEX)
+    }
+
+    pub fn index<'a, Type: bytemuck::Pod>(contents: &'a [Type]) -> ContentsBufferBuilder<'a> {
+        BufferBuilder::slice_of(contents)
+            .usage(wgpu::BufferUsages::INDEX)
+    }
 }
 
 pub struct SizedBufferBuilder<'a> {
@@ -91,3 +101,4 @@ impl<'a> ContentsBufferBuilder<'a> {
             )
     }
 }
+

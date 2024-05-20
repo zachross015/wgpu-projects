@@ -4,7 +4,7 @@ members = [
 	"01-hello-triangle",
 	"02-uniform-values",
 	"03-cube"
-, "framework"]
+, "04-circles", "framework"]
 resolver = "1"
 
 [workspace.dependencies]

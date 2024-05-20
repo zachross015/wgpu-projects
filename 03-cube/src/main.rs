@@ -212,9 +212,6 @@ impl Shader {
 
         Shader { bind_group, uniform_buffer, vertex_buffer, index_buffer, pipeline }
     }
-
-    fn render_to<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
-    }
 }
 
 

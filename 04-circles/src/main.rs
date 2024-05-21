@@ -38,9 +38,9 @@ fn create_shader_pipeline(context: &WgpuContext) -> Shader {
     let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
 
     let instance_centers_and_radii = [
-        300f32, 300.0, 100.0,
-        100.0, 100.0, 400.0,
-        0.0, 0.0, 550.0,
+        2f32, 2.0, 0.1,
+        4.0, 4.0, 0.2,
+        0.0, 0.0, 0.3,
     ];
     let instance_buffer = framework::BufferBuilder::slice_of(&instance_centers_and_radii)
         .usage(wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST)

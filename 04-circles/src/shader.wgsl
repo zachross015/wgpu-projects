@@ -5,16 +5,14 @@ var<uniform> resolution: vec2f;
 struct VertexOutput {
 	@builtin(position) position: vec4f,
 	@location(1) center: vec2f,
-	@location(2) radius: f32
+	@location(2) radius: f32,
 };
 
 
 @vertex
 fn vs_main(@location(0) vertex_position: vec2f, @location(1) center: vec2f, @location(2) radius: f32) -> VertexOutput {
 	var output: VertexOutput;
-	let center_position = 2.0 * ((center / resolution) - 1.0);
-	let radius_resolution = radius / resolution;
-	output.position = vec4f((vertex_position + center_position) * radius_resolution, 1.0, 4.0);
+	output.position = vec4f((radius * vertex_position) + center, 1.0, 4.0);
 	output.radius = radius;
 	output.center = center;
 	return output;
@@ -23,15 +21,16 @@ fn vs_main(@location(0) vertex_position: vec2f, @location(1) center: vec2f, @loc
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4f {
 
-	// let center = resolution * input.center;
+	// let center = (resolution * input.center) + (resolution / 2.0);
+	// let radius = min(resolution.x, resolution.y) * input.radius;
 
-	// if(distance(input.position.xy, center) > input.radius) {
+	// if(distance(input.position.xy, center) > radius) {
 	// 	discard;
 	// }
 
-	if(input.position.y < resolution.y / 2.0)  {
-		return vec4f(1.0, 0.0, 0.0, 1.0);
-	}
+	// if(input.position.y < resolution.y / 2.0)  {
+	// 	return vec4f(1.0, 0.0, 0.0, 1.0);
+	// }
 
 	return vec4f(vec3f(1.0), 1.0);
 }
